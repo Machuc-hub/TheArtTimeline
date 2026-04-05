@@ -1,0 +1,970 @@
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Chronos | Archivo Universal 10K</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100;300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #d4af37; --bezier: cubic-bezier(0.16, 1, 0.3, 1); }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Outfit', sans-serif; background-color: #050505; color: white; overflow: hidden; }
+
+        /* BUSCADOR */
+        #search-container {
+            position: absolute; top: 25px; left: 25px; width: 430px; z-index: 100;
+            background: rgba(15, 15, 15, 0.9); border: 1px solid rgba(212, 175, 55, 0.4);
+            border-radius: 4px; padding: 15px; backdrop-filter: blur(20px);
+        }
+        #search-input { width: 100%; background: transparent; border: none; color: white; font-family: 'Outfit', sans-serif; font-size: 0.9rem; outline: none; letter-spacing: 4px; text-transform: uppercase; }
+        #progress-bar { position: absolute; bottom: 0; left: 0; height: 2px; background: var(--accent); width: 0%; transition: width 0.3s ease; z-index: 101; }
+
+        /* TOOLTIP ÉPOCA */
+        #era-tooltip {
+            position: fixed; top: 25px; right: 25px; width: 340px;
+            background: rgba(15, 15, 15, 0.95); border: 1px solid var(--accent);
+            padding: 25px; z-index: 200; opacity: 0; pointer-events: none;
+            transform: translateX(20px); transition: all 0.4s var(--bezier);
+            backdrop-filter: blur(15px); box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+        }
+        #era-tooltip.visible { opacity: 1; transform: translateX(0); }
+        #era-tooltip h4 { margin: 0 0 12px 0; color: var(--accent); letter-spacing: 4px; text-transform: uppercase; font-size: 0.85rem; border-bottom: 1px solid rgba(212, 175, 55, 0.2); padding-bottom: 8px; }
+        #era-tooltip p { margin: 0; font-size: 0.9rem; line-height: 1.6; color: rgba(255,255,255,0.8); font-weight: 300; text-align: justify; }
+
+        /* TIMELINE */
+        #master-container {
+            position: relative; width: 800px; height: 100vh; z-index: 10; overflow: hidden;
+            background: linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,0.95) 70%, transparent 100%);
+            border-right: none; solid rgba(255,255,255,0.05);
+        }
+        #scroll-wrapper { will-change: transform; display: flex; flex-direction: column; padding-top: 50vh; padding-bottom: 50vh; }
+
+        .timeline-row { display: flex; align-items: center; height: 85px; width: 101%; margin-right: -1px; cursor: pointer; transition: all 0.4s var(--bezier); }
+        .axis-cell { width: 220px; min-width: 220px; display: flex; justify-content: flex-end; border-right: 2px solid rgba(212, 175, 55, 0.2); height: 100%; align-items: center; padding-right: 30px; box-sizing: border-box; }
+        .axis-year { font-size: 0.95rem; font-weight: 900; color: rgba(255,255,255,0.15); letter-spacing: 1px; transition: all 0.4s; text-align: right; font-variant-numeric: tabular-nums; }
+
+        .item-cell { flex: 1; padding-left: 50px; opacity: 0.25; transition: all 0.4s var(--bezier); padding-right: 40px; overflow: hidden; }
+        .item-name { font-size: 1.3rem; font-weight: 300; text-transform: uppercase; letter-spacing: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+
+        .timeline-row.active { background: rgba(212, 175, 55, 0.05); }
+        .timeline-row.active .axis-year { color: var(--accent); font-size: 1.15rem; opacity: 1; }
+        .timeline-row.active .item-cell { opacity: 1; transform: translateX(30px); }
+        .timeline-row.active .item-name { color: white; font-weight: 800; font-size: 1.6rem; letter-spacing: 4px; }
+
+        .era-header { padding: 90px 0 30px 270px; font-weight: 900; font-size: 0.8rem; letter-spacing: 12px; color: var(--accent); text-transform: uppercase; opacity: 0.5; }
+
+        /* DISPLAY */
+        #main-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-size: cover; background-position: center; transition: background-image 1s ease; z-index: 1; opacity: 0.25; }
+        #main-bg::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 35% 50%, transparent 0%, #050505 100%); }
+        #display-text { position: absolute; top: 0; left: 800px; right: 0; bottom: 0; display: flex; align-items: center; padding: 0 8%; z-index: 5; pointer-events: none; }
+        .art-info { max-width: 900px; opacity: 0; transform: translateY(20px); transition: all 0.7s var(--bezier); pointer-events: auto; }
+        .art-info.visible { opacity: 1; transform: translateY(0); }
+        h2 { font-size: 4.2rem; margin: 0; font-weight: 900; text-transform: uppercase; line-height: 0.9; color: white; letter-spacing: -2px; }
+        .meta-data { margin-top: 20px; font-size: 0.8rem; font-weight: 900; color: var(--accent); letter-spacing: 6px; text-transform: uppercase; margin-bottom: 35px; }
+        .desc-container { font-size: 1.25rem; line-height: 1.8; color: rgba(255,255,255,0.6); text-align: justify; font-weight: 300; }
+
+#lightbox {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s var(--bezier);
+}
+
+#lightbox.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#lightbox-img {
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+    transform: scale(0.8);
+    transition: transform 0.6s var(--bezier);
+    box-shadow: 0 0 50px rgba(0,0,0,0.5);
+}
+
+#lightbox.active #lightbox-img {
+    transform: scale(1);
+}
+
+#lightbox-close {
+    position: absolute;
+    top: 30px;
+    right: 40px;
+    font-size: 24px;
+    color: white;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.3s;
+}
+
+#lightbox-close:hover {
+    opacity: 1;
+}
+
+.wiki-container {
+            margin-top: 25px;
+            display: flex;
+            align-items: center;
+        }
+
+.wiki-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border: 1px solid var(--accent);
+            border-radius: 50%;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.4s var(--bezier);
+            cursor: pointer;
+            background: transparent;
+        }
+
+        .wiki-link:hover {
+            background: var(--accent);
+            color: black;
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+            transform: scale(1.1);
+        }
+
+
+
+#audio-control {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            z-index: 1000;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--accent);
+            font-size: 12px;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            opacity: 0.6;
+        }
+
+        #audio-control:hover { opacity: 1; }
+
+        #audio-icon {
+            width: 30px;
+            height: 30px;
+            border: 1px solid var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: rotate(45deg);
+            transition: all 0.5s var(--bezier);
+        }
+
+        #audio-control.playing #audio-icon {
+            box-shadow: 0 0 15px var(--accent);
+            background: rgba(212, 175, 55, 0.1);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="search-container">
+        <input type="text" id="search-input" placeholder="BUSCAR OBRA O ÉPOCA..." autocomplete="off">
+        <div id="progress-bar"></div>
+    </div>
+
+    <div id="era-tooltip">
+        <h4 id="era-title"></h4>
+        <p id="era-desc"></p>
+    </div>
+
+    <div id="main-bg"></div>
+    <aside id="master-container"><div id="scroll-wrapper"></div></aside>
+    <main id="display-text"><div id="info-wrapper" class="art-info"></div></main>
+<div id="timeline-scroll-container">
+    <div id="year-indicator">0 dC</div>
+    <input type="range" id="timeline-slider" min="0" max="100" value="0" step="0.1">
+</div>
+
+    <div id="lightbox">
+    <div id="lightbox-close">✕</div>
+    <img id="lightbox-img" src="" alt="Zoom">
+</div>
+
+<div id="audio-control">
+    <div id="audio-icon">◈</div>
+    <audio id="ambient-bgm" loop>
+    <source src="file:///C:/Users/jmvci/Downloads/825435_andrewkn_ambient-pad-ionosphere(1)%20(online-audio-converter.com).mp3" type="audio/mpeg">
+</audio>
+</div>
+
+    <script>
+        // --- DICCIONARIO EVOLUTIVO DINÁMICO ---
+const eraInfo = {
+            "PLIOCENO": "Hace 3-5M de años. Los primeros homínidos recogen objetos naturales por su forma curiosa, naciendo la capacidad de ver un concepto simbólico dentro de un objeto.",
+            "PLEISTOCENO": "Época de las grandes glaciaciones. El ser humano empieza a dominar el fuego y a crear las primeras herramientas con una intención que trasciende lo puramente práctico.",
+            "PALEOLÍTICO INFERIOR": "Primeras manifestaciones de pensamiento simbólico. El Homo heidelbergensis empieza a modificar piedras para buscar la simetría y la belleza formal.",
+            "PALEOLÍTICO MEDIO": "La era de los Neandertales. Nacimiento de los ritos funerarios, uso de pigmentos corporales y las primeras firmas de identidad (manos sopladas en cuevas).",
+           "PALEOLÍTICO SUPERIOR": [
+                { hasta: 30000, desc: "Auriñaciense: Explosión del arte figurativo. Se usan los relieves de las cuevas (como en Chauvet) para dar volumen y realismo a animales peligrosos como leones y rinocerontes." },
+                { hasta: 20000, desc: "Gravetiense: Auge de las figuras de fertilidad femenina (Venus) y el uso de pigmentos para marcar la identidad del grupo en las paredes." },
+                { hasta: 0, desc: "Magdaleniense: Apogeo de la pintura polícroma. Es la era de la perfección técnica en Altamira, donde el detalle y el color alcanzan niveles casi modernos." }
+            ],
+            "NEOLÍTICO": "Revolución agrícola y sedentarismo. El arte se vuelve esquemático y nace la arquitectura de adobe y piedra para los primeros núcleos urbanos.",
+            "MEGALITISMO": "La era de los constructores de gigantes. Ingeniería colosal donde el ser humano desafía la gravedad con bloques de piedra de hasta 180 toneladas. Los monumentos (dólmenes, crómlechs) actúan como marcadores territoriales, tumbas y observatorios astronómicos.",
+            "MESOPOTAMIA": [
+                { hasta: 3000, desc: "Periodo de Uruk: Invención de la escritura cuneiforme. El templo es el centro del universo social." },
+                { hasta: 2350, desc: "Sumeria Dinástica: Ciudades amuralladas y el auge del palacio real como centro de poder." },
+                { hasta: 0, desc: "Imperios Acadio y Babilónico: La era de los reyes guerreros, la ley escrita y la unificación del Creciente Fértil." }
+            ],
+            "EGIPTO": [
+                { hasta: 2700, desc: "Periodo Arcaico: Unificación de las Dos Tierras bajo el canon faraónico inicial." },
+                { hasta: 2100, desc: "Reino Antiguo: La gran era de las pirámides y la consolidación del orden divino (Maat)." },
+                { hasta: 1550, desc: "Reino Medio: Un arte más humanizado y detallista tras periodos de crisis política." },
+                { hasta: 0, desc: "Reino Nuevo: Expansión militar, templos colosales (Karnak) y el realismo del periodo de Amarna." }
+            ],
+            "CIVILIZACIÓN MINOICA": "Cultura marítima de Creta. Un arte fluido, colorista y alegre, centrado en la naturaleza, los toros y los rituales palaciegos.",
+            "CIVILIZACIÓN MICÉNICA": "Sociedad de reyes guerreros en la Grecia continental. Arquitectura de murallas ciclópeas y lujosos ajuares de oro (Máscara de Agamenón).",
+            "EDAD DE BRONCE": "Época de grandes redes comerciales de metales y el colapso de las primeras grandes civilizaciones del Mediterráneo oriental.",
+            "GRECIA ARCAICA": "Renacimiento tras la Edad Oscura. Inicio de la escultura monumental (Kouros) y la perfección de la cerámica de figuras negras.",
+            "GRECIA CLÁSICA": "El Siglo de Pericles: Búsqueda de la armonía matemática, la democracia y la perfección anatómica idealizada.",
+            "ETRURIA": "Pueblo itálico con un arte vitalista y funerario único. Su realismo y técnica en terracota influyeron profundamente en la futura Roma.",
+            "IMPERIO PERSA": "Potencia de los Aqueménidas. Arte de relieves precisos y palacios monumentales (Persépolis) que celebran la majestad del Rey de Reyes.",
+            "DINASTÍA QIN": "Unificación de China por el primer emperador. Era de estandarización burocrática y construcción del Ejército de Terracota.",
+            "HELENISMO": "Tras Alejandro Magno: El arte rompe el equilibrio clásico para buscar el drama, el movimiento extremo y la emoción cruda.",
+            "INDIA GANDHARA": "Fusión única donde la estética griega se mezcla con la iconografía budista, creando las primeras imágenes humanas de Buda.",
+            "DINASTÍA HAN": "Edad de Oro de China. Expansión de la Ruta de la Seda y un arte refinado que conectó a Oriente con el mundo romano.",
+            "IMPERIO ROMANO": [
+                { hasta: 1, desc: "República: Arte austero y retratos realistas que buscaban la 'veritas' (honestidad visual absoluta)." },
+                { hasta: 200, desc: "Alto Imperio: La era de los Césares. Apogeo de la ingeniería, el hormigón y el mármol como propaganda estatal." },
+                { hasta: 500, desc: "Bajo Imperio: Estilo más rígido y simbólico que anuncia la espiritualidad de la Edad Media." }
+            ],
+            "ARTE PALEOCRISTIANO": "Primeras manifestaciones cristianas en catacumbas y basílicas, adaptando los símbolos romanos a la nueva fe salvadora.",
+            "IMPERIO BIZANTINO": "El esplendor de Constantinopla. Arte dominado por el mosaico dorado, la frontalidad rígida y el misticismo religioso.",
+            "ARTE ISLÁMICO": "Nacimiento y expansión. Basado en la geometría compleja, la caligrafía y la ausencia de figuras humanas en los templos.",
+            "ROMÁNICO": "El despertar de la Europa medieval. Arquitectura de muros gruesos y arcos de medio punto diseñada para la oración y el recogimiento.",
+            "GÓTICO": "La búsqueda de la luz de Dios. Catedrales con vitrales inmensos, arcos apuntados y una escultura que vuelve a ser naturalista.",
+            "RENACIMIENTO": "El retorno a la antigüedad clásica. El hombre es el centro del universo y se descubre la perspectiva lineal científica.",
+            "BARROCO ESPAÑOL": "El arte del impacto y el sentimiento. Uso dramático de la luz (claroscuro), curvas dinámicas y una ornamentación exuberante.",
+"ERA VIKINGA": "Cultura marítima escandinava caracterizada por una estética de entrelazado complejo y zoomorfo. Su arte, volcado en barcos, estelas y orfebrería, combina la funcionalidad guerrera con un simbolismo mitológico profundo.",
+            "CALIFATO DE CÓRDOBA": "El apogeo cultural de Al-Ándalus. Representa la máxima sofisticación de la geometría islámica, con innovaciones como el arco de herradura apuntado y la decoración en ataurique que influyeron en toda Europa.",
+            "IMPERIO JEMER": "Civilización del sudeste asiático (Camboya) que alcanzó una maestría inigualable en la arquitectura de piedra. Sus templos-montaña como Angkor Wat simbolizan el Monte Meru, el centro del universo hindú-budista.",
+            "BARROCO ESPAÑOL": "El Siglo de Oro. Se define por el realismo psicológico, el uso dramático de la luz (tenebrismo) y una teatralidad que buscaba conmover al espectador tanto en la fe como en la gloria del Imperio.",
+            "ROCOCÓ": "Evolución refinada y aristocrática del Barroco. Se centra en la elegancia, la ornamentación inspirada en la naturaleza (rocalla), los colores pastel y una temática centrada en el placer y la vida cortesana.",
+            "NEOCLASICISMO": "Reacción racionalista contra los excesos ornamentales. Inspirado por la Ilustración y los descubrimientos de Pompeya, busca la serenidad, el equilibrio y la rectitud moral a través de los cánones grecorromanos.",
+            "IMPRESIONISMO": "La ruptura definitiva con el academicismo. Se centra en capturar la luz y el instante fugaz mediante pinceladas sueltas y la teoría del color, priorizando la percepción visual sobre el dibujo preciso.",
+            "POSTIMPRESIONISMO": "Extensión y rechazo del impresionismo. Los artistas (como Van Gogh o Cézanne) recuperan la estructura y el orden, utilizando el color de manera subjetiva para expresar emociones y conceptos internos.",
+            "MODERNISMO": "También conocido como Art Nouveau. Una corriente que busca democratizar la belleza fusionando arte e industria. Se caracteriza por el uso de líneas curvas, formas orgánicas y la integración total de la decoración en la arquitectura.",
+	    "ARTE ROMANO TARDÍO": "Periodo de transición donde el realismo clásico se pierde en favor de una representación más espiritual y jerárquica, anticipando el arte medieval.",
+            "ARTE VISIGODO": "Estilo desarrollado en la Península Ibérica tras la caída de Roma. Se caracteriza por el uso del arco de herradura y una arquitectura de sillería austera pero elegante.",
+            "ARTE OMEYA": "La primera etapa del arte islámico, que absorbe técnicas bizantinas y sasánidas para crear un lenguaje propio basado en la caligrafía y la decoración geométrica.",
+            "ARTE CAROLINGIO": "Renacimiento cultural impulsado por Carlomagno en Europa Central, buscando recuperar el esplendor del Imperio Romano bajo una visión cristiana y palaciega.",
+"ARTE MOZÁRABE": "Estética fronteriza creada por cristianos en territorio islámico. Combina la estructura basilical con el arco de herradura califal y una decoración llena de simbolismo oriental.",
+            "ROMÁNICO LOMBARDO": "Estilo caracterizado por el uso de arcos ciegos y bandas decorativas en el exterior, junto a una pintura mural de gran fuerza expresiva y esquematismo sagrado.",
+            "ROMÁNICO FRANCÉS": "El apogeo de la escultura monumental en las portadas de las iglesias de peregrinación, donde el relieve narra el Juicio Final con una intensidad dramática única.",
+            "IMPERIO AZTECA": "Arte de una potencia simbólica sobrecogedora. Su estética une la precisión astronómica con una escultura en piedra que rinde culto a la vida, la muerte y los ciclos del sol.",
+            "IMPERIO INCA": "La perfección de la cantería. Su arte reside en el dominio de la piedra y la integración del urbanismo en paisajes imposibles, creando una arquitectura eterna y sagrada.",
+            "BARROCO NOVOHISPANO": "Fusión exuberante entre la tradición europea y la mano de obra indígena en América. Se distingue por sus fachadas de encaje de piedra y retablos bañados en oro infinito.",
+            "BARROCO ITALIANO": "El arte del contraste absoluto. Utiliza el tenebrismo y la composición dinámica para capturar momentos de máxima tensión emocional y espiritual.",
+            "BARROCO FLAMENCO": "Caracterizado por una vitalidad desbordante, el uso de colores cálidos y una pincelada suelta que celebra la fuerza física y el movimiento heroico.",
+            "BARROCO HOLANDÉS": "Reflejo del auge de la burguesía. Se especializa en el dominio de la luz naturalista, los interiores domésticos y los retratos colectivos llenos de realismo psicológico."
+
+
+
+        };
+
+        let artData = []; 
+        const mount = document.getElementById('scroll-wrapper');
+        const bg = document.getElementById('main-bg');
+        const info = document.getElementById('info-wrapper');
+        const searchInput = document.getElementById('search-input');
+        const prog = document.getElementById('progress-bar');
+        const eraTooltip = document.getElementById('era-tooltip');
+        let targetY = 0, currentY = 0;
+
+        // --- MOTOR DE ORDENACIÓN BLINDADO ---
+async function addBatch(batch) {
+            artData = [...artData, ...batch];
+
+            for (let art of batch) {
+                // 1. BUSCAR TEXTO (Wikipedia) si no existe
+                if (!eraInfo[art.e]) {
+                    try {
+                        const res = await fetch(`https://es.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(art.e)}`);
+                        const data = await res.json();
+                        if (data.extract) eraInfo[art.e] = data.extract;
+                    } catch (e) { console.log("Error en texto"); }
+                }
+
+                // 2. BUSCAR IMAGEN (Unsplash) si el campo 'i' está vacío
+                if (!art.i || art.i === "") {
+                    console.log(`📸 IA buscando imagen para: ${art.n}...`);
+                    try {
+                        // Buscamos en Unsplash usando el nombre de la obra (n)
+                        const imgRes = await fetch(`https://source.unsplash.com/featured/?${encodeURIComponent(art.n + " " + art.e)}`);
+                        if (imgRes.url) {
+                            art.i = imgRes.url; // Asignamos la imagen encontrada
+                        }
+                    } catch (e) {
+                        art.i = "https://via.placeholder.com/800x600?text=Imagen+no+encontrada";
+                    }
+                }
+            }
+
+            // 3. Ordenar y Renderizar
+            const parseYear = (yearStr) => {
+                if (!yearStr) return 0;
+                let num = parseInt(yearStr.replace(/[^0-9]/g, ''));
+                return yearStr.toLowerCase().includes('ac') ? -num : num;
+            };
+            artData.sort((a, b) => parseYear(a.y) - parseYear(b.y));
+            render();
+        }
+        // --- RENDERIZADO CON BUSCADOR INTELIGENTE (SIN TILDES) ---
+        function render(filter = "") {
+            mount.innerHTML = '';
+            const normalize = (str) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const query = normalize(filter);
+            
+            const filtered = artData.filter(a => 
+                normalize(a.n).includes(query) || normalize(a.e).includes(query)
+            );
+
+            let lastEra = "";
+            filtered.forEach((art) => {
+                if(art.e !== lastEra) {
+                    const h = document.createElement('div'); 
+                    h.className = 'era-header';
+                    h.innerText = art.e;
+                    h.onmouseenter = () => {
+                        let yearNum = Math.abs(parseInt(art.y.replace(/[^0-9]/g, '')));
+                        let data = eraInfo[art.e];
+                        let desc = Array.isArray(data) ? (data.find(v => yearNum >= v.hasta) || data[data.length-1]).desc : (data || "Archivo...");
+                        document.getElementById('era-title').innerText = art.e;
+                        document.getElementById('era-desc').innerText = desc;
+                        eraTooltip.classList.add('visible');
+                    };
+                    h.onmouseleave = () => eraTooltip.classList.remove('visible');
+                    mount.appendChild(h); 
+                    lastEra = art.e;
+                }
+                const row = document.createElement('div');
+                row.className = 'timeline-row';
+                row.dataset.globalIndex = artData.indexOf(art);
+                row.innerHTML = `<div class="axis-cell"><span class="axis-year">${art.y}</span></div>
+                                 <div class="item-cell"><span class="item-name">${art.n}</span></div>`;
+                row.onclick = () => { targetY = row.offsetTop - window.innerHeight/2 + 42; };
+                mount.appendChild(row);
+            });
+        }
+
+        function animate() {
+            currentY += (targetY - currentY) * 0.12;
+            mount.style.transform = `translateY(${-currentY}px)`;
+            const rows = document.querySelectorAll('.timeline-row');
+            let closest = null; let minDist = Infinity;
+            rows.forEach(row => {
+                const d = Math.abs(window.innerHeight/2 - (row.getBoundingClientRect().top + 42));
+                if (d < minDist) { minDist = d; closest = row; }
+            });
+            if (closest && !closest.classList.contains('active')) {
+                rows.forEach(r => r.classList.remove('active'));
+                closest.classList.add('active');
+                updateDisplay(closest.dataset.globalIndex);
+                prog.style.width = ((closest.dataset.globalIndex / (artData.length-1)) * 100) + "%";
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function updateDisplay(idx) {
+            const data = artData[idx];
+            if(!data) return;
+            
+            // Efecto de salida: quitamos visibilidad y escalamos el fondo
+            info.classList.remove('visible');
+            bg.style.opacity = "0";
+            bg.style.transform = "scale(1.1)";
+
+            setTimeout(() => {
+                // Preparamos el buscador de Wikipedia con el nombre de la obra
+                const searchTerm = encodeURIComponent(data.n + " obra de arte");
+                const wikiUrl = `https://es.wikipedia.org/w/index.php?search=${searchTerm}`;
+                
+                // Inyectamos el contenido. Nota que el botón "?" está al final
+                info.innerHTML = `
+                    <div class="meta-data">${data.e} • ${data.y}</div>
+                    <h2>${data.n}</h2>
+                    <div class="desc-container">${data.d}</div>
+                    
+                    <div class="wiki-container">
+                        <a href="${wikiUrl}" target="_blank" class="wiki-link" title="Saber más en Wikipedia">?</a>
+                        <span class="wiki-label">Documentación externa</span>
+                    </div>
+                `;
+                
+                // Actualizamos la imagen de fondo
+                bg.style.backgroundImage = `url('${data.i}')`;
+                
+                // Efecto de entrada suave
+                bg.style.opacity = "0.25"; 
+                bg.style.transform = "scale(1)";
+                info.classList.add('visible');
+            }, 400);
+        }
+
+
+        window.addEventListener('wheel', (e) => { targetY = Math.max(0, Math.min(targetY + e.deltaY, mount.scrollHeight - window.innerHeight)); }, { passive: true });
+        searchInput.oninput = (e) => { render(e.target.value); targetY = 0; };
+        animate();
+
+
+        // --- CARGA DE DATOS ---
+        addBatch([
+            {
+                e:"PLIOCENO", y:"3.000.000 aC", n:"Piedra de Makapansgat", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/PIEDRA.jpg", 
+                d:"<p>El 'objeto encontrado' más antiguo del mundo. No fue tallado, pero un Australopithecus lo recogió y transportó varios kilómetros porque vio en él una cara humana.</p><p>Es la prueba más remota de reconocimiento simbólico: la capacidad de ver un concepto dentro de un objeto natural.</p>"
+            },
+            {
+                e:"PLEISTOCENO", y:"500.000 aC", n:"Concha de Trinil", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/concha.jpg", 
+                d:"<p>Un Homo erectus grabó un patrón de zigzag en esta concha de agua dulce. No tiene utilidad práctica, lo que lo convierte en el grabado geométrico más antiguo conocido.</p><p>Este hallazgo en Java cambió la historia: demuestra que el pensamiento abstracto no fue exclusivo de nuestra especie.</p>"
+            },
+            {
+                e:"PALEOLÍTICO INFERIOR", y:"350.000 aC", n:"Venus de Tan-Tan", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Venus-of-Tan-Tan-Featured-Image.jpg", 
+                d:"<p>Encontrada en Marruecos, esta pieza de cuarcita muestra incisiones que acentúan una forma humana. Se cree que fue modificada por Homo heidelbergensis.</p><p>Representa el paso intermedio entre encontrar una forma y decidir mejorarla manualmente para que parezca un cuerpo.</p>"
+            },
+            {
+                e:"PALEOLÍTICO MEDIO", y:"175.000 aC", n:"Estructuras de Bruniquel", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/estructuras-neandertales-en-la-cueva-de-bruniquel.jpg", 
+                d:"<p>En lo profundo de una cueva en Francia, los Neandertales rompieron estalagmitas y las colocaron en círculos perfectos.</p><p>No es pintura, es una instalación arquitectónica ritual que demuestra que los Neandertales tenían un mundo simbólico y social complejo.</p>"
+            },
+            {
+                e:"PALEOLÍTICO MEDIO", y:"115.000 aC", n:"Conchas de la Cueva de los Aviones", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Decorated_shell_from_Cueva_Ant%C3%B3n.jpg", 
+                d:"<p>Situada en Cartagena, España. Conchas perforadas con restos de pigmentos rojos (ocre) y amarillos.</p><p>Es la evidencia de que el maquillaje y el adorno personal nacieron mucho antes de lo que pensábamos, vinculados a la identidad del grupo.</p>"
+            },
+            {
+                e:"PALEOLÍTICO MEDIO", y:"100.000 aC", n:"Taller de Ocre de Blombos", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/ed996498cea19b06e6f3b4174628c8b5.jpg", 
+                d:"<p>Se encontraron 'kits de pintura': conchas de abulón usadas como recipientes para mezclar ocre con grasa de foca y carbón.</p><p>Este es el nacimiento de la industria del color. El ser humano ya no solo encontraba colores, los fabricaba siguiendo una receta.</p>"
+            },
+// LOTE 01: EL DESPERTAR DE LA IMAGEN (65.000 aC - 30.000 aC)
+    
+            {
+                e:"PALEOLÍTICO MEDIO", y:"65.000 aC", n:"Maltravieso: La Mano Roja", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/maltravieso.jpg", 
+                d:"<p>Ubicada en Cáceres, España. Esta silueta de mano soplada con ocre es, según los últimos estudios, obra de Neandertales.</p><p>Es el primer 'yo estuve aquí' de la historia, una firma de identidad que precede al Homo Sapiens en Europa.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"45.500 aC", n:"Cacería de Leang Bulu’ Sipong", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/leang%20bulu%20sipong.png", 
+                d:"<p>Encontrada en Indonesia, es la escena narrativa más antigua del mundo. Representa a figuras humanas con rasgos animales (teriantropos) cazando cerdos verrugosos y búfalos.</p><p>Esto demuestra que el arte figurativo y la capacidad de contar historias no nacieron en Europa, sino que eran globales.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"42.000 aC", n:"Pinturas de focas de Nerja", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/focas.jpg", 
+                d:"<p>Unas de las pocas representaciones de fauna marina en el arte paleolítico. Se encuentran en las profundidades de la Cueva de Nerja (Málaga).</p><p>El análisis de los pigmentos sugiere que podrían ser las pinturas más antiguas de la península, vinculadas a grupos de cazadores-recolectores costeros.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"37.000 aC", n:"Abras de Abri Castanet", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/li-abri-castanet-pnas2.jpg", 
+                d:"<p>En Francia, los arqueólogos hallaron grabados en el techo colapsado de un refugio. Muestran símbolos circulares que representan el aparato reproductor femenino.</p><p>Es el inicio del simbolismo de la fertilidad que luego daría lugar a las famosas 'Venus'.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"36.000 aC", n:"Venus de Galgenberg", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/medium_the-oldest-stone-representation-of-a-human-venus-of-galgenberg-eofl_image.jpg", 
+                d:"<p>Conocida como 'Fanny', es una estatuilla de piedra serpentina que parece estar bailando. Es una de las representaciones humanas más dinámicas de la prehistoria.</p><p>A diferencia de otras Venus posteriores, esta tiene una postura esbelta y un movimiento que sugiere ritmo y danza.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"32.000 aC", n:"Panel de los Caballos (Chauvet)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/W0240-Panel-de-la-cueva-de-Chauvet.jpg", 
+                d:"<p>Una de las cumbres del arte universal. El artista utilizó el relieve natural de la roca para dar volumen a los hocicos de los caballos.</p><p>El uso de la perspectiva y el difuminado aquí es tan avanzado que los expertos no podían creer que tuviera más de 30.000 años.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"30.000 aC", n:"Rinocerontes de Vallon-Pont-d'Arc", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/6350.jpg", 
+                d:"<p>Una escena de lucha entre dos rinocerontes lanudos. Capta la agresividad y el movimiento de forma magistral.</p><p>Demuestra un conocimiento profundo de la anatomía animal y un interés por capturar el 'instante' de acción, como una fotografía prehistórica.</p>"
+            },
+{
+                e:"PALEOLÍTICO SUPERIOR", y:"28.000 aC", n:"Venus de Lespugue", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/bc42cc5b83b44842947167ef7c58ef5c.jpeg", 
+                d:"<p>Encontrada en los Pirineos franceses, es la Venus más estilizada y geométrica de todas. Sus formas casi abstractas fascinaron a artistas modernos como Picasso.</p><p>Representa un nivel de síntesis artística asombroso: el cuerpo humano reducido a volúmenes circulares puros.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"26.000 aC", n:"Cueva de Pech Merle", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/bff1951a40ab8b6eded0fd7cb092d67f-WEB21-210312181114-Chevaux-ponctues---vue-tres-large---Grotte-du-Pech-Merle---Remi-Flament-1600x809.jpg", 
+                d:"<p>Famosa por sus 'caballos punteados'. Los artistas usaron la técnica del estarcido (soplar pigmento sobre la mano o plantillas) para crear texturas complejas.</p><p>Incluye siluetas de manos que parecen flotar alrededor de los animales, creando una atmósfera onírica y ritual.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"24.000 aC", n:"Venus de Brassempouy", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Venus_of_Brassempouy.jpg", 
+                d:"<p>La 'Dama de la Capucha'. Es uno de los primeros rostros detallados de la historia. A diferencia de otras Venus, esta se centra en la cabeza y el peinado.</p><p>El delicado tallado del cabello sugiere que la moda y el estilo personal ya eran fundamentales en la identidad humana hace 24 milenios.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"23.000 aC", n:"Venus de Laussel", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/205_Venus_Laussel.jpg", 
+                d:"<p>Un bajorrelieve tallado directamente en la roca de un refugio. La figura sostiene un cuerno de bisonte con 13 incisiones, posiblemente representando los ciclos lunares o menstruales.</p><p>Es la primera gran obra que combina la figura humana con conceptos astronómicos o calendáricos.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"21.000 aC", n:"Cueva de Cosquer", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/cosquer.jpg", 
+                d:"<p>Una cápsula del tiempo submarina. Su entrada quedó sumergida tras el deshielo de la última glaciación. Contiene pinturas de pingüinos y grandes alcas.</p><p>Nos recuerda que el mapa del mundo artístico era muy distinto cuando el nivel del mar estaba 120 metros por debajo del actual.</p>"
+            },
+{
+                e:"MESOPOTAMIA", y:"4.000 aC", n:"Vaso de Warka", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/78df42746239e764cfff6420b9d779b6.jpg", 
+                d:"<p>Encontrado en Uruk, es la primera gran obra narrativa en relieve. Muestra una procesión de ofrendas a la diosa Inanna organizada en registros horizontales.</p><p>Representa la estructura social sumeria: desde la naturaleza en la base hasta el poder divino en la cima.</p>"
+            },
+            {
+                e:"EGIPTO", y:"3.100 aC", n:"Paleta de Narmer", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Narmer_Palette.jpg", 
+                d:"<p>El documento fundacional de Egipto. Conmemora la unificación del Alto y Bajo Egipto bajo el primer faraón.</p><p>Aquí se establecen los cánones del arte egipcio que durarían 3.000 años: la jerarquía de tamaño y la vista de perfil.</p>"
+            },
+            {
+                e:"MESOPOTAMIA", y:"2.900 aC", n:"Figurillas de Tell Asmar", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Standing_male_worshiper_MET_DT850.jpg", 
+                d:"<p>Estatua de orantes con ojos enormes fabricados en concha y lapislázuli. Esos ojos simbolizan la vigilancia eterna y la comunicación directa con los dioses.</p><p>Eran dejadas en los templos para que rezaran continuamente en nombre de sus dueños.</p>"
+            },
+            {
+                e:"EGIPTO", y:"2.650 aC", n:"Pirámide Escalonada de Zoser", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Saqqara_pyramid_ver_2.jpg", 
+                d:"<p>Diseñada por Imhotep, el primer arquitecto con nombre conocido en la historia. Fue el primer monumento de piedra a gran escala del mundo.</p><p>El coste de mantenimiento del complejo funerario de Saqqara para el gobierno egipcio ronda actualmente los 5.000.000 € anuales para evitar el colapso de sus galerías interiores.</p>"
+            },
+            {
+                e:"EGIPTO", y:"2.560 aC", n:"Gran Pirámide de Giza", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Kheops-Pyramid.jpg", 
+                d:"<p>La única de las Siete Maravillas del Mundo Antiguo que sigue en pie. Construida con 2.3 millones de bloques de piedra para el faraón Keops.</p><p>Su precisión matemática es tan extrema que la base es casi perfectamente nivelada, con un error de apenas unos milímetros.</p>"
+            },
+            {
+                e:"MESOPOTAMIA", y:"2.500 aC", n:"Estandarte de Ur", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Denis_Bourez_-_British_Museum,_London_(8747049029)_(2).jpg", 
+                d:"<p>Una caja de madera decorada con un mosaico de conchas, caliza roja y lapislázuli. Una cara muestra la 'Guerra' y la otra la 'Paz'.</p><p>Es el mejor ejemplo de la riqueza del cementerio real de Ur y del comercio a larga distancia (el lapislázuli venía del actual Afganistán).</p>"
+            },
+            {
+                e:"EGIPTO", y:"2.490 aC", n:"Tríada de Micerino", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/cuatro-triadas-de-micerino-son-mostradas-tras-su-descubrimiento-por-george-reisner-en-giza_5268bd4d_1908_231220144458_1280x950.jpg", 
+                d:"<p>Escultura en esquisto que muestra al faraón flanqueado por la diosa Hathor y una personificación de un distrito egipcio.</p><p>Muestra el ideal de juventud eterna y la serenidad divina del Reino Antiguo, con un pulido de piedra que parece imposible para herramientas de la Edad de Bronce.</p>"
+            },
+            {
+                e:"MESOPOTAMIA", y:"2.400 aC", n:"Cabeza de Rey Acadio", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/mascara2-1.jpg", 
+                d:"<p>La primera gran obra maestra de la fundición en bronce. Probablemente representa a Sargón de Acad.</p><p>Fue dañada deliberadamente en la antigüedad (le arrancaron los ojos) como acto de humillación política tras la caída del imperio.</p>"
+            },
+{
+                e:"CIVILIZACIÓN MINOICA", y:"1.700 aC", n:"El Salto del Toro", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/eafef-saltodeltoro.jpg", 
+                d:"<p>Famoso fresco del Palacio de Cnosos en Creta. Muestra una escena ritual donde jóvenes saltan sobre un toro al galope.</p><p>A diferencia de Egipto, el arte minoico es fluido y lleno de movimiento, celebrando la agilidad y el dinamismo.</p>"
+            },
+            {
+                e:"EDAD DE BRONCE", y:"1.600 aC", n:"Máscara de Agamenón", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Athens_%E2%80%94_Mask_of_Agamemnon.jpg", 
+                d:"<p>Máscara funeraria de oro encontrada en Micenas por Schliemann. Aunque se le atribuyó al héroe de Homero, es 300 años anterior.</p><p>Es el símbolo de una aristocracia guerrera que acumulaba riquezas inmensas tras muros ciclópeos.</p>"
+            },
+            {
+                e:"EGIPTO", y:"1.350 aC", n:"Busto de Nefertiti", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/busto%20de%20nefertiti.jpg", 
+                d:"<p>La obra cumbre del periodo de Amarna. Rompe con la rigidez tradicional para mostrar un naturalismo y elegancia sublimes.</p><p>Se estima que el valor de este busto, si saliera a subasta hoy, superaría los 100.000.000 € debido a su estado de conservación único.</p>"
+            },
+            {
+                e:"GRECIA ARCAICA", y:"600 aC", n:"Kouros de Anavyssos", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/13199718465_a4cde1913b_c.jpg", 
+                d:"<p>Estatua de mármol de un joven atleta. Muestra la famosa 'sonrisa arcaica', un intento de dar vida y expresión al rostro.</p><p>Es el primer paso hacia la perfección anatómica que veríamos siglos después en el periodo clásico.</p>"
+            },
+            {
+                e:"ETRURIA", y:"520 aC", n:"Sarcófago de los Esposos", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Sarcophagus_of_the_Spouses_from_Villa_Giulia_in_Rome.jpg", 
+                d:"<p>Obra maestra en terracota de una pareja recostada en un banquete funerario. Refleja la alta posición social de la mujer en la cultura etrusca.</p><p>El detalle de los rostros y el gesto de las manos muestran una calidez humana que rara vez se veía en otras culturas contemporáneas.</p>"
+            },
+            {
+                e:"GRECIA ARCAICA", y:"510 aC", n:"Copa de Dioniso (Exequias)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/5ee4edad9c2ad_03-1.jpg", 
+                d:"<p>Cerámica de figuras negras donde el dios del vino navega en un barco rodeado de delfines. Es la cumbre de la técnica de incisión griega.</p><p>El diseño circular aprovecha perfectamente la forma de la copa, demostrando una integración total entre soporte y dibujo.</p>"
+            },
+            {
+                e:"GRECIA CLÁSICA", y:"450 aC", n:"El Discóbolo (Mirón)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/escultura-el-discobolo-de-miron-og.webp", 
+                d:"<p>La captura perfecta del movimiento en equilibrio. Representa el ideal griego de la 'Arête': la excelencia física y mental.</p><p>Aunque el original era de bronce, lo conocemos por copias romanas de mármol que cuestan millones en seguros de transporte.</p>"
+            },
+            {
+                e:"GRECIA CLÁSICA", y:"438 aC", n:"El Partenón", 
+                i:"https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/The_Parthenon_in_Athens.jpg/1280px-The_Parthenon_in_Athens.jpg", 
+                d:"<p>El templo definitivo de Atenea. Su arquitectura usa correcciones ópticas (curvaturas sutiles) para parecer perfectamente recto al ojo humano.</p><p>Es el símbolo universal de la democracia y la razón occidental.</p>"
+            },
+            {
+                e:"IMPERIO PERSA", y:"500 aC", n:"Relieves de Persépolis", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/09db382acac6380316b15358a5284d5c.jpg", 
+                d:"<p>Muestra a las 23 naciones del imperio trayendo tributos al Rey de Reyes. Es un arte de una elegancia y precisión técnica insuperables.</p><p>A diferencia de los asirios, los persas mostraban a sus súbditos con dignidad, reflejando su política de tolerancia religiosa.</p>"
+            },
+            {
+                e:"DINASTÍA QIN", y:"210 aC", n:"Guerreros de Terracota", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Terrakottaarm%C3%A9n-1.jpg", 
+                d:"<p>8.000 soldados de arcilla a tamaño real, cada uno con rasgos faciales únicos, creados para proteger al primer emperador de China en el más allá.</p><p>Su descubrimiento en 1974 es considerado el hallazgo arqueológico más importante del siglo XX.</p>"
+            },
+{
+                e:"HELENISMO", y:"320 aC", n:"Sarcófago de Alejandro", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/sarcofago-de-alejandro-el-relieve-muestra-al-conquistador-macedonio-cazando-leones-con-sus-companeros-y-abdalonimo-rey-de-sidon_45731c24_1280x921.jpg", 
+                d:"<p>Aunque no contenía el cuerpo de Alejandro Magno, este sarcófago de mármol de Pentélico muestra una de las escenas de batalla más detalladas de la antigüedad.</p><p>Conserva restos de policromía original, recordándonos que el mundo antiguo no era blanco, sino de colores vibrantes.</p>"
+            },
+            {
+                e:"HELENISMO", y:"220 aC", n:"Gálata Moribundo", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/0_Galata_Morente_-_Musei_Capitolini_(1).jpg", 
+                d:"<p>Una obra maestra de la empatía: representa a un enemigo derrotado (un celta de Galacia) con una dignidad y nobleza heroicas.</p><p>El detalle del torque (collar de metal) y el cabello áspero muestra el interés helenístico por el realismo étnico y el patetismo.</p>"
+            },
+            {
+                e:"HELENISMO", y:"190 aC", n:"Victoria de Samotracia", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/una-base-monumental_633e471b_13410583i_231205171650_1200x630.jpg", 
+                d:"<p>La diosa Niké aterrizando en la proa de un barco. Es el triunfo del movimiento: el viento parece mover realmente la túnica mojada contra el cuerpo.</p><p>Su valor es incalculable; el Louvre asegura esta pieza por cifras que superan los 500.000.000 € por su carácter de icono mundial.</p>"
+            },
+            {
+                e:"HELENISMO", y:"180 aC", n:"Altar de Pérgamo", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Pergamo%20altar.jpg", 
+                d:"<p>La Gigantomaquia (lucha de dioses y gigantes) cobrada vida. Los relieves son tan profundos que las figuras parecen salir de la pared hacia las escaleras.</p><p>Es el punto máximo del 'barroco helenístico': cuerpos retorcidos, expresiones de agonía y una energía arrolladora.</p>"
+            },
+            {
+                e:"HELENISMO", y:"130 aC", n:"Venus de Milo", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/venus-de-milo.jpg", 
+                d:"<p>Afrodita de Milos. Combina la estructura clásica con una torsión sensual del cuerpo (el 'S-Curve') que define el canon de belleza femenino durante siglos.</p><p>A pesar de la falta de brazos, su composición es tan equilibrada que el ojo humano completa la figura de forma armoniosa.</p>"
+            },
+            {
+                e:"HELENISMO", y:"40 aC", n:"Laocoonte y sus hijos", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Laoco%C3%B6n_and_his_sons_group.jpg", 
+                d:"<p>El clímax de la desesperación. Un sacerdote troyano y sus hijos son estrangulados por serpientes marinas enviadas por los dioses.</p><p>Fue redescubierta en Roma en 1506 y cambió el curso del Renacimiento: Miguel Ángel quedó obsesionado con la musculatura y el dolor de esta pieza.</p>"
+            },
+            {
+                e:"INDIA GANDHARA", y:"50 aC", n:"Buda de Gandhara", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/FilePane-Gandhara_Buddha_tnm.jpeg", 
+                d:"<p>¿Qué pasa cuando un escultor griego esculpe a un dios indio? El resultado es este Buda con túnica de pliegues helénicos y rostro de Apolo.</p><p>Es la prueba física de que la Ruta de la Seda no solo movía mercancías, sino también ideas estéticas a miles de kilómetros.</p>"
+            },
+{
+                e:"IMPERIO ROMANO", y:"13 aC", n:"Ara Pacis Augustae", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Ara_Pacis,_general.jpg", 
+                d:"<p>El Altar de la Paz de Augusto. Es la obra maestra de la propaganda romana: relieves que muestran a la familia imperial en una procesión real.</p><p>Simboliza la 'Pax Romana', el periodo de estabilidad que permitió que el imperio floreciera comercialmente en tres continentes.</p>"
+            },
+            {
+                e:"IMPERIO ROMANO", y:"75 dC", n:"Relieves del Arco de Tito", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Arch_of_Titus_Menorah.png", 
+                d:"<p>Conmemoración del saqueo de Jerusalén. Por primera vez, el escultor logra crear una ilusión de profundidad real, con los soldados 'entrando' en el muro.</p><p>Se aprecia claramente la Menorá (candelabro judío) siendo transportada como botín de guerra a Roma.</p>"
+            },
+            {
+                e:"IMPERIO ROMANO", y:"80 dC", n:"El Coliseo", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/colosseum-690384_1280.jpg", 
+                d:"<p>El Anfiteatro Flavio. El mayor estadio del mundo antiguo, construido con un nuevo material revolucionario: el <i>opus caementicium</i> (hormigón romano).</p><p>Podía evacuarse en menos de 20 minutos gracias a su complejo sistema de pasillos y vomitorios.</p>"
+            },
+            {
+                e:"IMPERIO ROMANO", y:"113 dC", n:"Columna de Trajano", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/orificios_b3b31e1a_250620151749_2000x1861.webp", 
+                d:"<p>Un 'cómic' de mármol de 200 metros de largo enrollado en una columna de 30 metros. Narra con detalle cinematográfico las victorias de Trajano.</p><p>Es la mejor fuente arqueológica para conocer el equipo militar y la logística de las legiones romanas.</p>"
+            },
+            {
+                e:"IMPERIO ROMANO", y:"125 dC", n:"El Panteón de Agripa", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/interior-panteon.jpg", 
+                d:"<p>El templo de todos los dioses. Su cúpula de 43 metros de diámetro no tiene soportes visibles y está abierta al cielo por un óculo central.</p><p>Sigue siendo la cúpula de hormigón no armado más grande del mundo después de casi 2.000 años.</p>"
+            },
+            {
+                e:"IMPERIO ROMANO", y:"180 dC", n:"Marco Aurelio Ecuestre", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/o8hmxiq5jc6g1.jpeg", 
+                d:"<p>La única estatua ecuestre de bronce que sobrevivió a la Edad Media. Se salvó porque creían que era el emperador cristiano Constantino.</p><p>Muestra al emperador filósofo en un gesto de clemencia, con un rostro que refleja la introspección de sus 'Meditaciones'.</p>"
+            },
+            {
+                e:"IMPERIO ROMANO", y:"200 dC", n:"Retratos de El Fayum", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/7UEMNDMZSFNC7JVRSNWNDKVWUU.jpg", 
+                d:"<p>Pinturas realistas sobre madera que se colocaban sobre las momias en el Egipto romano. Es el antecedente directo del retrato occidental.</p><p>La técnica de la encáustica (cera de abeja) ha conservado los colores tan vivos que parece que los sujetos fueron pintados hoy mismo.</p>"
+            },
+{
+                e:"MEGALITISMO", y:"3750 aC", n:"Dolmen de Menga (Antequera)", 
+                i:"https://arkeonews.net/wp-content/uploads/2023/12/Interior-of-the-dolmen.png", 
+                d:"<p>Considerado el 'Stradivarius' de los dólmenes. Es una tumba de corredor colosal donde la piedra de cobertura pesa unas 180 toneladas.</p><p>A diferencia de otros dólmenes, no está orientado al sol, sino a 'La Peña de los Enamorados', una montaña con forma de rostro humano, uniendo la arquitectura con el paisaje sagrado.</p>"
+            },
+            {
+                e:"MEGALITISMO", y:"3200 aC", n:"Newgrange (Irlanda)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/b8d8f30096734b39ab0416e093564773.jpg", 
+                d:"<p>Un templo astronómico más antiguo que las pirámides de Giza. Está diseñado con una precisión tal que, durante el solsticio de invierno, un haz de luz recorre 19 metros hasta iluminar el fondo de la cámara.</p>"
+            },
+            {
+                e:"MEGALITISMO", y:"2500 aC", n:"Stonehenge (Inglaterra)", 
+                i:"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Stonehenge2007_07_30.jpg/1280px-Stonehenge2007_07_30.jpg", 
+                d:"<p>El monumento megalítico más famoso del mundo. Sus piedras 'azules' fueron transportadas desde Gales, a más de 200 km de distancia.</p><p>Representa la transición del Megalitismo hacia una comprensión avanzada de los ciclos celestes y el poder social organizado.</p>"
+            },
+            {
+                e:"MEGALITISMO", y:"3000 aC", n:"Dolmen de Viera", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Antequera_dolmen_Viera_1.jpg", 
+                d:"<p>Vecino de Menga, pero con una intención distinta. Es un dolmen de corredor clásico orientado perfectamente hacia el amanecer en los equinoccios, marcando el calendario agrícola.</p>"
+            },
+{
+                e:"PALEOLÍTICO SUPERIOR", y:"45500 aC", n:"Cueva de Leang Tedongnge", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/_116511320_indoncavepig.jpg", 
+                d:"<p>Ubicada en la isla de Sulawesi, Indonesia. Es actualmente la pintura rupestre figurativa más antigua del mundo.</p><p>Representa a un jabalí verrugoso de Celebes, pintado con ocre rojo. Demuestra que el arte no nació solo en Europa, sino que fue una explosión global de la especie.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"36000 aC", n:"Cueva de Chauvet", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/unnamed.jpg", 
+                d:"<p>La 'Capilla Sixtina' del periodo Auriñaciense. Destaca por su técnica avanzada: los artistas usaron el relieve de la roca para dar volumen a los animales.</p><p>Contiene escenas de caza dinámicas con leones, rinocerontes y mamuts que parecen estar en pleno movimiento.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"18000 aC", n:"Cueva de Lascaux", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/visiter-grotte-lascaux-iv-1-2-1.jpg", 
+                d:"<p>Famosa por su 'Sala de los Toros'. Es un despliegue de color (negros, amarillos y rojos) y escala monumental.</p><p>Representa el apogeo del pensamiento simbólico, donde el hombre ya no solo pinta lo que ve, sino que crea composiciones complejas con un posible sentido astronómico o ritual.</p>"
+            },
+            {
+                e:"PALEOLÍTICO SUPERIOR", y:"14500 aC", n:"Cueva de Altamira", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/altamira.jpg", 
+                d:"<p>El mayor hito del periodo Magdaleniense en Cantabria. Sus famosos bisontes polícromos aprovechan las protuberancias del techo para crear un efecto 3D único.</p><p>Cuando Picasso la visitó, exclamó: 'Después de Altamira, todo es decadencia'.</p>"
+            },
+            {
+                e:"NEOLÍTICO", y:"8000 aC", n:"Cueva de las Manos", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/SantaCruz-CuevaManos-P2210651b.jpg", 
+                d:"<p>Ubicada en la Patagonia argentina. Es un mural colosal de siluetas de manos obtenidas mediante una técnica de aerografía primitiva (soplando pigmento a través de tubos de hueso).</p><p>Representa la firma colectiva de una comunidad, un 'estuvimos aquí' que ha resistido 10.000 años.</p>"
+            },
+            {
+                e:"CALIFATO DE CÓRDOBA", y:"961 dC", n:"Mezquita-Catedral de Córdoba (Ampliación de Al-Hakam II)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/istock-477134224_4c793d2b_230516104933_1280x853.jpg", 
+                d:"<p>El cenit del arte omeya. Los arcos polilobulados y la cúpula de nervios que no se cruzan en el centro son una revolución geométrica que anticipa el gótico europeo.</p><p>El valor de las dovelas de mármol y los mosaicos bizantinos enviados desde Constantinopla superaría hoy los 45.000.000 € en términos de patrimonio histórico.</p>"
+            },
+            {
+                e:"ERA VIKINGA", y:"834 dC", n:"Barco de Oseberg", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Osebergskipet_2016.jpg", 
+                d:"<p>Más que un transporte, es una escultura funcional. La talla en madera de la proa en forma de serpiente demuestra un dominio del entrelazado animalístico (estilo Broa).</p><p>Simboliza la soberanía de los mares y la creencia en el viaje físico hacia el Valhalla.</p>"
+            },
+            {
+                e:"IMPERIO JEMER", y:"1150 dC", n:"Angkor Wat", 
+                i:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Ankor_Wat_temple.jpg/1280px-Ankor_Wat_temple.jpg", 
+                d:"<p>La estructura religiosa más grande del mundo. Su diseño es un Microcosmos: el foso representa el océano cósmico y las torres el Monte Meru.</p><p>Su construcción requirió mover más piedra que todas las pirámides de Egipto juntas, utilizando una red de canales que hoy asombra a los ingenieros hidráulicos.</p>"
+            },
+            {
+                e:"ARTE ISLÁMICO", y:"1350 dC", n:"La Alhambra de Granada (Palacios Nazaríes)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Dawn_Charles_V_Palace_Alhambra_Granada_Andalusia_Spain.jpg", 
+                d:"<p>La cumbre del refinamiento nazarí. No busca la monumentalidad de la piedra, sino la belleza de lo efímero: yesería, agua y luz.</p><p>Sus inscripciones caligráficas repiten 'Solo Dios es vencedor', convirtiendo la arquitectura en un poema legible que envuelve al espectador.</p>"
+            },
+{
+                e:"BARROCO ESPAÑOL", y:"1656 dC", n:"Las Meninas (Velázquez)", 
+                i:"https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Las_Meninas%2C_by_Diego_Vel%C3%A1zquez%2C_from_Prado_in_Google_Earth.jpg/1280px-Las_Meninas%2C_by_Diego_Vel%C3%A1zquez%2C_from_Prado_in_Google_Earth.jpg", 
+                d:"<p>La obra más compleja de la historia de la pintura. Velázquez juega con los espejos y la mirada del espectador, incluyéndose a sí mismo en el acto de pintar.</p><p>Se estima que su valor de mercado, si alguna vez saliera del Museo del Prado, superaría los 250.000.000 €, aunque para España es un tesoro nacional incalculable.</p>"
+            },
+            {
+                e:"ROCOCÓ", y:"1767 dC", n:"El Columpio (Fragonard)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpbSI6WyJcL2FydHdvcmtcL2ltYWdlRmlsZVwvNWQ0ZWE0ZmVkNTljZi5qcGciLCJyZXNpemUsMjAwMCwyMDAwIl19.QGbDZusRWU9HoZJxhSyN2Ls4xvLsYTFcd64tDO9lU2U.png", 
+                d:"<p>El arte de la aristocracia francesa antes de la revolución. Colores pastel, temas galantes y una técnica refinada que oculta un mensaje de erotismo sutil.</p>"
+            },
+            {
+                e:"NEOCLASICISMO", y:"1784 dC", n:"El Juramento de los Horacios", 
+                i:"https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/David-Oath_of_the_Horatii-1784.jpg/1280px-David-Oath_of_the_Horatii-1784.jpg", 
+                d:"<p>El retorno al orden romano. Jacques-Louis David usa líneas severas y temas heroicos para inspirar los valores de la Revolución Francesa.</p>"
+            },
+            {
+                e:"IMPRESIONISMO", y:"1872 dC", n:"Impresión, sol naciente (Monet)", 
+                i:"https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Monet_-_Impression%2C_Sunrise.jpg/1280px-Monet_-_Impression%2C_Sunrise.jpg", 
+                d:"<p>El cuadro que dio nombre al movimiento. Monet ya no pinta el objeto, sino la luz que se refleja en él a una hora específica del día.</p>"
+            },
+            {
+                e:"POSTIMPRESIONISMO", y:"1889 dC", n:"La noche estrellada (Van Gogh)", 
+                i:"https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/1280px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg", 
+                d:"<p>La pintura como expresión del alma. Las pinceladas vibrantes y circulares no representan un cielo real, sino el estado emocional convulso del artista.</p><p>Su valor estimado en subasta hoy rondaría los 150.000.000 €.</p>"
+            },
+            {
+                e:"MODERNISMO", y:"1905 dC", n:"Casa Batlló (Antoni Gaudí)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Casa-Batllo-Barcelona-Spain.jpg", 
+                d:"<p>Arquitectura orgánica en Barcelona. Gaudí elimina las líneas rectas por considerar que no existen en la naturaleza, cubriendo la fachada con 'trencadís' de vidrio y cerámica.</p>"
+            },
+{
+                e:"ARTE ROMANO TARDÍO", y:"315 dC", n:"Arco de Constantino", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Arch_of_Constantine_at_Night_(Rome).jpg", 
+                d:"<p>El momento en que el realismo clásico empieza a transformarse en simbolismo. Se reutilizaron piezas de monumentos antiguos, marcando el fin de una era y el nacimiento de la estética medieval.</p>"
+            },
+            {
+                e:"ARTE PALEOCRISTIANO", y:"430 dC", n:"Mosaicos de Santa María la Mayor", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Apse_mosaic_SM_Maggiore.jpg", 
+                d:"<p>El nacimiento de la narrativa visual cristiana. Las imágenes dejan de buscar la belleza física para centrarse en la educación espiritual, usando el dorado para representar la luz divina.</p>"
+            },
+            {
+                e:"ARTE VISIGODO", y:"661 dC", n:"San Juan de Baños", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/SAN_JUAN_DE_BA%C3%91OS.JPG", 
+                d:"<p>Una joya del Prerrománico en España. Introdujo el arco de herradura antes de la llegada del Islam, en una arquitectura robusta de piedra que buscaba la eternidad.</p>"
+            },
+            {
+                e:"ARTE OMEYA", y:"691 dC", n:"Cúpula de la Roca", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/16-04-04-Felsendom-Tempelberg-Jerusalem-RalfR-WAT_6385.jpg", 
+                d:"<p>La primera gran obra maestra del Islam. Geometría perfecta y mosaicos de herencia bizantina se unen para crear un espacio sagrado que vibra a través del color y la forma.</p>"
+            },
+            {
+                e:"ARTE CAROLINGIO", y:"805 dC", n:"Capilla Palatina de Aquisgrán", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/0846-catedral-de-aquisgran.jpg", 
+                d:"<p>El intento de Carlomagno por resucitar el Imperio Romano en el norte. Una estructura octogonal masiva que fusiona la fuerza bárbara con la técnica constructiva de Bizancio.</p>"
+            },
+{
+                e:"ARTE MOZÁRABE", y:"913 dC", n:"San Miguel de Escalada", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/hq_Monasterio%20de%20San%20Miguel%20de%20Escalada07.jpg", // Busca: "San Miguel de Escalada Leon"
+                d:"<p>El arte de los cristianos que vivían bajo dominio musulmán. Una síntesis única donde el arco de herradura califal se une a la estructura de las iglesias cristianas.</p>"
+            },
+            {
+                e:"ROMÁNICO LOMBARDO", y:"1040 dC", n:"San Clemente de Tahull", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/tahull.jpg", // Busca: "Pantocrator Sant Climent de Taull"
+                d:"<p>La mirada hipnótica del Pantocrátor. Colores vibrantes y formas geométricas que buscaban representar el poder absoluto de Dios en un mundo feudal.</p>"
+            },
+            {
+                e:"ROMÁNICO FRANCÉS", y:"1130 dC", n:"Tímpano de la Abadía de Moissac", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Imagen1.jpg", // Busca: "Moissac Abbey tympanum"
+                d:"<p>El portal al más allá. Esculturas llenas de movimiento y terror sagrado que recibían a los peregrinos en su camino hacia Santiago de Compostela.</p>"
+            },
+{
+                e:"IMPERIO AZTECA", y:"1487 dC", n:"Piedra del Sol", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Piedra_del_Sol.png", // Busca: "Aztec Sun Stone Mexico"
+                d:"<p>Un monolito colosal que funciona como calendario y cosmogonía. Representa la lucha eterna de los dioses y la necesidad del sacrificio para que el sol siga naciendo.</p>"
+            },
+            {
+                e:"IMPERIO INCA", y:"1450 dC", n:"Machu Picchu", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Machu_Picchu,_Peru_(2018).jpg", // Busca: "Machu Picchu sanctuary"
+                d:"<p>La armonía perfecta entre piedra y montaña. Una joya de la ingeniería donde la arquitectura no domina la naturaleza, sino que se integra en ella como una extensión sagrada.</p>"
+            },
+            {
+                e:"BARROCO NOVOHISPANO", y:"1750 dC", n:"Santa Prisca de Taxco", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/9223189233_043d0e8f91_o-scaled.jpg", // Busca: "Santa Prisca Taxco church"
+                d:"<p>El exceso convertido en gloria. El estilo churrigueresco llevado al límite en México, con retablos bañados en oro que parecen derretirse ante los ojos del fiel.</p>"
+            },
+{
+                e:"BARROCO ITALIANO", y:"1601 dC", n:"La vocación de San Mateo (Caravaggio)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Caravaggio_%E2%80%94_The_Calling_of_Saint_Matthew.jpg", // Busca: "The Calling of Saint Matthew Caravaggio"
+                d:"<p>El nacimiento del tenebrismo. Una luz diagonal atraviesa la penumbra de una taberna romana, convirtiendo un momento cotidiano en un evento divino y dramático.</p>"
+            },
+            {
+                e:"BARROCO FLAMENCO", y:"1610 dC", n:"La elevación de la Cruz (Rubens)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Peter_Paul_Rubens_-_Raising_of_the_Cross_(Antwerp_Cathedral).JPG", // Busca: "The Elevation of the Cross Rubens"
+                d:"<p>Energía pura y músculos en tensión. Rubens utiliza la diagonal y el color vibrante para crear una escena llena de fuerza física y espiritual.</p>"
+            },
+            {
+                e:"BARROCO HOLANDÉS", y:"1642 dC", n:"La ronda de noche (Rembrandt)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/La_ronda_de_noche,_por_Rembrandt_van_Rijn.jpg", // Busca: "The Night Watch Rembrandt"
+                d:"<p>Un retrato de grupo que rompe las reglas. Rembrandt utiliza la luz para destacar figuras clave, creando una atmósfera de misterio y movimiento en plena calle.</p>"
+            },
+{
+                e:"NEOCLASICISMO", y:"1793 dC", n:"La muerte de Marat (Jacques-Louis David)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/Death_of_Marat_by_David.jpg", // Busca: "Death of Marat David Brussels"
+                d:"<p>El arte convertido en ética. Una composición austera y equilibrada que transforma a un líder revolucionario en un mártir laico, inspirada en la piedad de Miguel Ángel.</p>"
+            },
+            {
+                e:"ROMANTICISMO", y:"1814 dC", n:"Los fusilamientos del 3 de mayo (Goya)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/El_Tres_de_Mayo,_by_Francisco_de_Goya,_from_Prado_thin_black_margin.jpg", // Busca: "Third of May 1808 Goya Prado"
+                d:"<p>El grito del genio contra la barbarie. Goya rompe con la belleza ideal para mostrar el horror crudo, el miedo y la dignidad humana ante la injusticia.</p>"
+            },
+            {
+                e:"ROMANTICISMO", y:"1830 dC", n:"La Libertad guiando al pueblo (Delacroix)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/La_Libert%C3%A9_guidant_le_peuple_-_Eug%C3%A8ne_Delacroix_-_Mus%C3%A9e_du_Louvre_Peintures_RF_129_-_apr%C3%A8s_restauration_2024.jpg", // Busca: "Liberty Leading the People Delacroix Louvre"
+                d:"<p>Energía, humo y pasión. Una composición piramidal donde el color y el movimiento exaltan los ideales de libertad, igualdad y fraternidad en las barricadas de París.</p>"
+            },
+            {
+                e:"REALISMO", y:"1867 dC", n:"El taller del pintor (Courbet)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpbSI6WyJcL2FydHdvcmtcL2ltYWdlRmlsZVwvNjJhNWNkYzIwZTA2Ni5qcGciLCJyZXNpemUsMjAwMCwyMDAwIl19.A4SkPj3Ex60aMYJeWxAjjCdOvauJDS5AN4ZfXbZiYK8.png", // Busca: "The Painter's Studio Courbet Orsay"
+                d:"<p>El arte baja a la tierra. Courbet rechaza los temas heroicos para pintar la realidad social, mostrando la vida tal como es, sin adornos ni idealizaciones.</p>"
+            },
+            {
+                e:"PRERRAFAELISMO", y:"1852 dC", n:"Ofelia (John Everett Millais)", 
+                i:"file:///C:/Users/jmvci/Desktop/IMAGENES%20LINEA%20TEMPORAL/John_Everett_Millais_-_Ophelia_-_Google_Art_Project.jpg", // Busca: "Ophelia Millais Tate"
+                d:"<p>Nostalgia medieval y obsesión botánica. Una técnica hiperdetallada para capturar la belleza trágica de la literatura, rechazando la frialdad de la era industrial.</p>"
+            }
+
+        ]);
+
+const lb = document.getElementById('lightbox');
+const lbImg = document.getElementById('lightbox-img');
+const lbClose = document.getElementById('lightbox-close');
+const mainBg = document.getElementById('main-bg');
+
+// Abrir al hacer click en el fondo
+mainBg.addEventListener('click', () => {
+    // Extraemos la URL limpia del background-image
+    const currentBg = mainBg.style.backgroundImage;
+    const url = currentBg.slice(5, -2); // Limpia el formato url("...")
+    
+    if (url && url !== "") {
+        lbImg.src = url;
+        lb.classList.add('active');
+    }
+
+const audioBtn = document.getElementById('audio-control');
+        const bgm = document.getElementById('ambient-bgm');
+        let isPlaying = false;
+
+        bgm.volume = 0.3; // Volumen bajo para que sea ambiente
+
+        audioBtn.addEventListener('click', () => {
+            if (!isPlaying) {
+                bgm.play();
+                audioBtn.classList.add('playing');
+                audioBtn.querySelector('#audio-icon').innerText = '◆';
+            } else {
+                bgm.pause();
+                audioBtn.classList.remove('playing');
+                audioBtn.querySelector('#audio-icon').innerText = '◈';
+            }
+            isPlaying = !isPlaying;
+        });
+
+        // Opcional: Iniciar al primer click en cualquier parte de la web
+        document.addEventListener('click', () => {
+            if(!isPlaying && bgm.paused) {
+                // Descomenta la siguiente línea si quieres que empiece solo
+                // audioBtn.click(); 
+            }
+        }, { once: true });
+});
+
+// Función para cerrar
+const closeLightbox = () => {
+    lb.classList.remove('active');
+};
+
+// Cerrar al hacer click en la cruz o en el fondo del lightbox
+lbClose.addEventListener('click', closeLightbox);
+lb.addEventListener('click', (e) => {
+    if (e.target !== lbImg) closeLightbox();
+});
+
+const audioBtn = document.getElementById('audio-control');
+const bgm = document.getElementById('ambient-bgm');
+let isPlaying = false;
+
+audioBtn.addEventListener('click', () => {
+    if (!isPlaying) {
+        bgm.volume = 0;
+        bgm.play();
+        
+        // Subida de volumen progresiva
+        let fadeIn = setInterval(() => {
+            if (bgm.volume < 0.2) {
+                bgm.volume += 0.01;
+            } else {
+                clearInterval(fadeIn);
+            }
+        }, 50);
+
+        audioBtn.classList.add('playing');
+        audioBtn.querySelector('#audio-icon').innerText = '◆';
+    } else {
+        // Bajada de volumen progresiva
+        let fadeOut = setInterval(() => {
+            if (bgm.volume > 0.01) {
+                bgm.volume -= 0.01;
+            } else {
+                bgm.pause();
+                clearInterval(fadeOut);
+            }
+        }, 30);
+        
+        audioBtn.classList.remove('playing');
+        audioBtn.querySelector('#audio-icon').innerText = '◈';
+    }
+    isPlaying = !isPlaying;
+});
+
+    </script>
+</body>
+</html>
