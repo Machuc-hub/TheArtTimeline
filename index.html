@@ -1,9 +1,15 @@
 <html lang="es">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
     <title>Chronos | Archivo Universal 10K</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100;300;400;700;900&display=swap" rel="stylesheet">
     <style>
+        img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        }
         :root { --accent: #d4af37; --bezier: cubic-bezier(0.16, 1, 0.3, 1); }
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Outfit', sans-serif; background-color: #050505; color: white; overflow: hidden; }
 
@@ -172,10 +178,85 @@
             background: rgba(212, 175, 55, 0.1);
         }
 
+@media (max-width: 768px) {
+    /* Centramos el timeline */
+    #master-container {
+        width: 100% !important;
+        left: 0 !important;
+        display: flex;
+        justify-content: center; /* Centra la lista */
+        background: transparent !important; /* Para que se vea la imagen de fondo */
+        border: none !important;
+    }
+
+    /* El texto de info ahora será un "Modal" (encima de todo) */
+    #display-text {
+        position: fixed !important;
+        top: 50%;
+        left: 50% !important;
+        transform: translate(-50%, -50%) scale(0.9);
+        width: 85% !important;
+        max-height: 70vh;
+        background: rgba(10, 10, 10, 0.95) !important;
+        backdrop-filter: blur(15px); /* Desenfoque de fondo */
+        border: 1px solid var(--accent);
+        border-radius: 15px;
+        z-index: 2000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.4s var(--bezier);
+    }
+
+    /* Clase para cuando el cuadro de info esté abierto */
+    #display-text.active {
+        opacity: 1;
+        visibility: visible;
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* El Buscador: ahora es un barrido lateral */
+    #search-container {
+        position: fixed;
+        top: 0;
+        left: -100%; /* Escondido a la izquierda */
+        width: 80% !important;
+        height: 100%;
+        background: #0f0f0f;
+        margin: 0;
+        padding: 60px 20px;
+        transition: left 0.4s var(--bezier);
+        border-right: 1px solid var(--accent);
+    }
+
+    #search-container.open {
+        left: 0; /* Aparece barriendo */
+    }
+
+    /* Botón Lupa (Solo visible en móvil) */
+    #mobile-search-trigger {
+        display: block !important;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 2100;
+        background: rgba(0,0,0,0.6);
+        border: 1px solid var(--accent);
+        color: white;
+        padding: 10px;
+        border-radius: 50%;
+        width: 45px;
+        height: 45px;
+        cursor: pointer;
+    }
+}
+
+/* Ocultar botón lupa en PC */
+#mobile-search-trigger { display: none; }
+
     </style>
 </head>
 <body>
-
+    <button id="mobile-search-trigger">🔍</button>
     <div id="search-container">
         <input type="text" id="search-input" placeholder="BUSCAR OBRA O ÉPOCA..." autocomplete="off">
         <div id="progress-bar"></div>
@@ -964,6 +1045,36 @@ audioBtn.addEventListener('click', () => {
     }
     isPlaying = !isPlaying;
 });
+const searchTrigger = document.getElementById('mobile-search-trigger');
+const searchContainer = document.getElementById('search-container');
+
+searchTrigger.addEventListener('click', (e) => {
+    searchContainer.classList.toggle('open');
+    e.stopPropagation();
+});
+
+// Cerrar buscador si pulsas fuera
+document.addEventListener('click', (e) => {
+    if (!searchContainer.contains(e.target) && searchContainer.classList.contains('open')) {
+        searchContainer.classList.remove('open');
+    }
+});
+
+// Para el efecto de desenfoque al abrir info
+// Debes modificar tu función actual que muestra el texto para que haga esto:
+const showInfoMobile = () => {
+    const infoBox = document.getElementById('display-text');
+    const mainContent = document.getElementById('master-container');
+    
+    infoBox.classList.add('active');
+    mainContent.style.filter = 'blur(8px)'; // Desenfoca el timeline
+};
+
+// Y una función para cerrar
+const closeInfoMobile = () => {
+    document.getElementById('display-text').classList.remove('active');
+    document.getElementById('master-container').style.filter = 'none';
+};
 
     </script>
 </body>
