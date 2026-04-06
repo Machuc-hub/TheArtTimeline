@@ -180,79 +180,80 @@
 
 /* --- CONFIGURACIÓN MÓVIL CRÍTICA --- */
 @media (max-width: 768px) {
-    /* 1. Quitamos el bloqueo de scroll del body */
+    /* 1. Ajuste de Pantalla */
     body, html {
-        overflow-y: auto !important;
         overflow-x: hidden !important;
+        overflow-y: hidden !important; /* Mantenemos el scroll controlado por tu JS */
     }
 
-    /* 2. Centramos el Timeline y eliminamos el ancho fijo de 800px */
+    /* 2. Centrar el Timeline (La lista de años) */
     #master-container {
         width: 100% !important;
         left: 0 !important;
-        height: 100vh !important;
         display: flex !important;
-        justify-content: center !important;
-        background: transparent !important; /* Para ver la imagen de fondo */
+        justify-content: center !important; /* Centra la línea vertical */
+        background: transparent !important;
         border-right: none !important;
-        position: fixed !important; /* Mantiene el timeline en su sitio */
+        z-index: 10 !important;
     }
 
-    /* 3. Convertimos el buscador en el menú lateral (Barrido) */
+    /* 3. El Buscador Lateral (Oculto a la izquierda) */
     #search-container {
         position: fixed !important;
         top: 0 !important;
-        left: -110% !important; /* Escondido a la izquierda */
-        width: 85% !important;
-        height: 100% !important;
+        left: -105% !important; /* Escondido */
+        width: 80% !important;
+        height: 100vh !important;
         margin: 0 !important;
         padding: 80px 20px !important;
-        transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        background: rgba(10, 10, 10, 0.98) !important;
-        border-right: 1px solid var(--accent) !important;
-        z-index: 9999 !important;
+        background: rgba(5, 5, 5, 0.98) !important;
+        border-right: 2px solid var(--accent) !important;
+        z-index: 2000 !important;
+        transition: left 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        display: block !important;
     }
 
-    /* Clase para abrir el buscador */
+    /* Clase para cuando la lupa lo activa */
     #search-container.search-open {
         left: 0 !important;
     }
 
-    /* 4. El Botón Lupa */
+    /* 4. Botón Lupa en la esquina */
     #mobile-search-trigger {
         display: flex !important;
         position: fixed;
         top: 20px;
         left: 20px;
-        z-index: 10000;
+        z-index: 2100;
         background: rgba(0, 0, 0, 0.8);
         border: 1px solid var(--accent);
         color: var(--accent);
-        width: 50px;
-        height: 50px;
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
         align-items: center;
         justify-content: center;
         font-size: 1.2rem;
     }
 
-    /* 5. El cuadro de información como MODAL centrado */
+    /* 5. Cuadro de Información (Modal Centrado) */
     #display-text {
         position: fixed !important;
         top: 50% !important;
         left: 50% !important;
         transform: translate(-50%, -50%) scale(0.9) !important;
-        width: 90% !important;
-        max-height: 80vh !important;
-        background: rgba(5, 5, 5, 0.95) !important;
+        width: 85% !important;
+        max-height: 70vh !important;
+        background: rgba(10, 10, 10, 0.95) !important;
         backdrop-filter: blur(15px) !important;
+        -webkit-backdrop-filter: blur(15px);
         border: 1px solid var(--accent) !important;
-        border-radius: 12px !important;
-        z-index: 11000 !important;
+        border-radius: 15px !important;
+        z-index: 3000 !important;
+        padding: 25px !important;
         opacity: 0;
         visibility: hidden;
-        transition: all 0.3s ease;
-        padding: 25px !important;
+        transition: all 0.4s var(--bezier) !important;
         overflow-y: auto !important;
     }
 
@@ -262,19 +263,15 @@
         transform: translate(-50%, -50%) scale(1) !important;
     }
 
-    /* 6. Efecto de desenfoque al fondo */
-    .blur-container {
-        filter: blur(10px) !important;
+    /* 6. Desenfocar el fondo cuando el cuadro de texto se abre */
+    .blur-bg {
+        filter: blur(8px) !important;
         pointer-events: none;
     }
-}
 
-/* Ocultar botón lupa en PC */
-@media (min-width: 769px) {
-    #mobile-search-trigger { display: none !important; }
+    /* Ajuste de títulos para que no se corten */
+    h2 { font-size: 1.8rem !important; margin-bottom: 10px; }
 }
-/* Ocultar botón lupa en PC */
-#mobile-search-trigger { display: none; }
 
     </style>
 </head>
@@ -1124,6 +1121,41 @@ const observador = new MutationObserver(() => {
     }
 });
 observador.observe(infoBox, { childList: true, characterData: true, subtree: true });
+
+// Referencias a los elementos
+const menuBusqueda = document.getElementById('search-container');
+const botonLupa = document.getElementById('mobile-search-trigger');
+const cuadroInfo = document.getElementById('display-text');
+const elTimeline = document.getElementById('master-container');
+
+// 1. Abrir/Cerrar buscador lateral
+botonLupa.addEventListener('click', (e) => {
+    menuBusqueda.classList.toggle('search-open');
+    e.stopPropagation();
+});
+
+// 2. Lógica para mostrar la info con desenfoque (solo en móvil)
+const observerInfo = new MutationObserver(() => {
+    if (window.innerWidth <= 768) {
+        // Si hay texto dentro, lo mostramos como modal
+        if (cuadroInfo.innerText.trim() !== "") {
+            cuadroInfo.classList.add('active');
+            elTimeline.classList.add('blur-bg');
+        }
+    }
+});
+
+observerInfo.observe(cuadroInfo, { childList: true, subtree: true });
+
+// 3. Cerrar el modal de info al tocar fuera (en el timeline desenfocado)
+elTimeline.addEventListener('click', () => {
+    if (cuadroInfo.classList.contains('active')) {
+        cuadroInfo.classList.remove('active');
+        elTimeline.classList.remove('blur-bg');
+        // Limpiamos el texto para que pueda volver a dispararse el observador
+        cuadroInfo.innerHTML = ""; 
+    }
+});
 
     </script>
 </body>
